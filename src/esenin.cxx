@@ -17,8 +17,12 @@ size_t write_callback_esenin_server(char *contents, size_t size, size_t nmemb, v
     return size * nmemb;
 }
 
-std::string Client::call_esenin_server(std::string const& url, long port, rapidjson::Document const& data)
+std::string call_esenin_server(std::string const& url, 
+                               long port, 
+                               rapidjson::Document const& data)
 {
+  curl_global_init(CURL_GLOBAL_ALL);
+
   CURL *curl = curl_easy_init();
   std::string result;
 
@@ -39,6 +43,7 @@ std::string Client::call_esenin_server(std::string const& url, long port, rapidj
       fprintf(stderr, "curl_easy_perform() failed: %s\n", curl_easy_strerror(code));
  
     curl_easy_cleanup(curl);
+    curl_global_cleanup();
   }
 
   return result;
@@ -46,14 +51,8 @@ std::string Client::call_esenin_server(std::string const& url, long port, rapidj
 
 Client::Client(std::string const& ip, long port)
 {
-  curl_global_init(CURL_GLOBAL_ALL);
   this->ip = ip;
   this->port = port;
-}
-
-Client::~Client()
-{
-  curl_global_cleanup();
 }
 
 std::string Client::get_pos(std::string const& text)
@@ -66,16 +65,9 @@ std::string Client::get_pos(std::string const& text)
   json_val.SetString(text.c_str(), allocator);
   doc.AddMember("string", json_val, allocator);
 
-  return this->call_esenin_server(
+  return call_esenin_server(
     "http://" + this->ip + "/nlp/pos",
     this->port, 
     doc
   );
-}
-
-int main (int argc, char *argv[])
-{
-  Client client = Client(std::string("127.0.0.1"), 9000L);
-  std::cout << client.get_pos(std::string("Мама мыла раму."));
-  return 0;
 }
