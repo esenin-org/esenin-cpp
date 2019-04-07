@@ -61,6 +61,16 @@ Takes arbitrary _russian_ text and returns Part Of Speech tags.
 
 See [esenin-server](https://github.com/esenin-org/esenin-server#pos) for example of request and response. 
 
+`PosWord` contains information about each word from the `text`. 
+```c++
+struct PosWord {
+    const std::string word; // word from text
+    const int connection_index; // parent of the word in dependency tree
+    const std::string connection_label; // connection label between parent and the word
+    const std::string pos; // part of speech tag
+}
+```
+
 ##### `std::string fit_topics(std::vector<std::vector<std::string>> const& terms, int topics)`
 Takes list of documents, where document is a list of terms, and number of topics. 
 Trains topic modeling algorithm with given terms and number of topics.
