@@ -26,21 +26,22 @@ This will install `libesenin.so` library on your computer.
 
 int main (int argc, char *argv[])
 {
-  Client client = Client(std::string("127.0.0.1"), 9000L);
-  std::vector<PosWord> words = client.get_pos("Мама мыла раму.");
+  Client client = Client(std::string("127.0.0.1"), 9000L); // client that connects to the esenin-server
+
+  std::vector<PosWord> words = client.get_pos("Мама мыла раму."); // request POS tags
   for(auto const& w: words) {
     std::cout << w.word << " " << w.pos << std::endl;
   }
 
-  std::vector<std::string> tmp { "Мама", "мыла", "раму" };
-
-  std::string id = client.fit_topics(
+  std::string id = client.fit_topics(    
     std::vector<std::vector<std::string>> 
-      {{"Мама", "мыла", "раму"}, {"Мама", "мыла", "окно"}, {"Мама", "мыла", "пол"}}, 10);
+      {{"Мама", "мыла", "раму"}, {"Мама", "мыла", "окно"}, {"Мама", "мыла", "пол"}}, 
+    10
+  ); // train topic modeling algorithm
 
   for(auto const& t: client.get_topics(id, "Мама")) { 
     std::cout << t << ' ';
-  }
+  } // request probablities for each topic
 
   return 0;
 }
@@ -59,9 +60,6 @@ to the [esenin-server](https://github.com/esenin-org/esenin-server).
 Takes arbitrary _russian_ text and returns Part Of Speech tags. 
 
 See [esenin-server](https://github.com/esenin-org/esenin-server#pos) for example of request and response. 
-
-
-    std::vector<double> get_topics(std::string const& id, std::string const& term);
 
 ##### `std::string fit_topics(std::vector<std::vector<std::string>> const& terms, int topics)`
 Takes list of documents, where document is a list of terms, and number of topics. 
