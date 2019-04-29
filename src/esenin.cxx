@@ -55,13 +55,76 @@ Client::Client(std::string const& ip, long port)
   this->port = port;
 }
 
-std::vector<PosWord> Client::get_pos(std::string const& text)
+std::vector<std::string> Client::tokenize(std::string const& text)
 {
   rapidjson::Document doc;
   auto& allocator = doc.GetAllocator();
 
   doc.SetObject();
   doc.AddMember("text", rapidjson::Value(text.c_str(), allocator).Move(), allocator);
+
+  std::string response = call_esenin_server(
+    "http://" + this->ip + "/nlp/token",
+    this->port, 
+    doc
+  );
+
+  rapidjson::Document result_doc;
+
+  result_doc.Parse(response.c_str());
+  const rapidjson::Value& value_tokens = result_doc["tokens"];
+
+  std::vector<std::string> tokens;
+  tokens.reserve(value_tokens.Size());
+  for (rapidjson::SizeType i = 0; i < value_tokens.Size(); i++) {
+    tokens.emplace_back(std::string(value_tokens[i].GetString()));
+  }
+
+  return tokens;
+}
+
+std::vector<std::string> Client::sentenize(std::string const& text)
+{
+  rapidjson::Document doc;
+  auto& allocator = doc.GetAllocator();
+
+  doc.SetObject();
+  doc.AddMember("text", rapidjson::Value(text.c_str(), allocator).Move(), allocator);
+
+  std::string response = call_esenin_server(
+    "http://" + this->ip + "/nlp/sentence",
+    this->port, 
+    doc
+  );
+
+  rapidjson::Document result_doc;
+
+  result_doc.Parse(response.c_str());
+  const rapidjson::Value& value_sentences = result_doc["sentences"];
+
+  std::vector<std::string> sentences;
+  sentences.reserve(value_sentences.Size());
+  for (rapidjson::SizeType i = 0; i < value_sentences.Size(); i++) {
+    sentences.emplace_back(std::string(value_sentences[i].GetString()));
+  }
+
+  return sentences;
+}
+
+std::vector<std::string> Client::get_pos(std::vector<std::string> const& tokens)
+{
+  rapidjson::Value tokens_val;
+  rapidjson::Document doc;
+  auto& allocator = doc.GetAllocator();
+
+  doc.SetObject();
+  tokens_val.SetArray();
+
+  for (size_t i = 0; i < tokens.size(); i++) {
+    tokens_val.PushBack(rapidjson::Value(tokens[i].c_str(), allocator), allocator);
+  }
+
+  doc.AddMember("tokens", tokens_val, allocator);
 
   std::string response = call_esenin_server(
     "http://" + this->ip + "/nlp/pos",
@@ -72,21 +135,99 @@ std::vector<PosWord> Client::get_pos(std::string const& text)
   rapidjson::Document result_doc;
 
   result_doc.Parse(response.c_str());
-  const rapidjson::Value& value_words = result_doc["words"];
+  const rapidjson::Value& value_pos = result_doc["pos"];
 
-  std::vector<PosWord> words;
-  words.reserve(value_words.Size());
-  for (rapidjson::SizeType i = 0; i < value_words.Size(); i++) {
-    const rapidjson::Value& value_word = value_words[i];
-    words.emplace_back(PosWord(
-      std::string(value_word["word"].GetString()), 
-      std::string(value_word["connection_label"].GetString()),
-      value_word["connection_index"].GetInt(),
-      std::string(value_word["pos"].GetString())
+  std::vector<std::string> pos;
+  pos.reserve(value_pos.Size());
+  for (rapidjson::SizeType i = 0; i < value_pos.Size(); i++) {
+    pos.emplace_back(std::string(value_pos[i].GetString()));
+  }
+
+  return pos;
+}
+
+std::vector<DependencyTreeNode> Client::get_dependency_tree(std::vector<std::string> const& tokens)
+{
+  rapidjson::Value tokens_val;
+  rapidjson::Document doc;
+  auto& allocator = doc.GetAllocator();
+
+  doc.SetObject();
+  tokens_val.SetArray();
+
+  for (size_t i = 0; i < tokens.size(); i++) {
+    tokens_val.PushBack(rapidjson::Value(tokens[i].c_str(), allocator), allocator);
+  }
+
+  doc.AddMember("tokens", tokens_val, allocator);
+
+  std::string response = call_esenin_server(
+    "http://" + this->ip + "/nlp/dtree",
+    this->port, 
+    doc
+  );
+
+  rapidjson::Document result_doc;
+
+  result_doc.Parse(response.c_str());
+  const rapidjson::Value& value_nodes = result_doc["nodes"];
+
+  std::vector<DependencyTreeNode> nodes;
+  nodes.reserve(value_nodes.Size());  
+  for (rapidjson::SizeType i = 0; i < value_nodes.Size(); i++) {
+    const rapidjson::Value& value_node = value_nodes[i];
+    nodes.emplace_back(DependencyTreeNode(
+      std::string(value_node["label"].GetString()),
+      value_node["parent"].GetInt()
     ));
   }
 
-  return words;
+  return nodes;
+}
+
+std::vector<NamedEntity> Client::get_named_entities(std::vector<std::string> const& tokens)
+{
+  rapidjson::Value tokens_val;
+  rapidjson::Document doc;
+  auto& allocator = doc.GetAllocator();
+
+  doc.SetObject();
+  tokens_val.SetArray();
+
+  for (size_t i = 0; i < tokens.size(); i++) {
+    tokens_val.PushBack(rapidjson::Value(tokens[i].c_str(), allocator), allocator);
+  }
+
+  doc.AddMember("tokens", tokens_val, allocator);
+
+  std::string response = call_esenin_server(
+    "http://" + this->ip + "/nlp/ne",
+    this->port, 
+    doc
+  );
+
+  rapidjson::Document result_doc;
+
+  result_doc.Parse(response.c_str());
+  const rapidjson::Value& value_entities = result_doc["entities"];
+
+  std::vector<NamedEntity> entities;
+  entities.reserve(value_entities.Size());  
+  for (rapidjson::SizeType i = 0; i < value_entities.Size(); i++) {
+    const rapidjson::Value& value_entity = value_entities[i];
+
+    std::vector<int> indexes;
+    const rapidjson::Value& value_indexes = value_entity["indexes"];
+    for (rapidjson::SizeType j = 0; j < value_indexes.Size(); j++) {
+      indexes.emplace_back(value_indexes[j].GetInt());
+    }
+    entities.emplace_back(NamedEntity(
+      indexes,
+      std::string(value_entity["kind"].GetString())
+    ));
+  }
+
+  return entities;
 }
 
 std::string Client::fit_topics(std::vector<std::vector<std::string>> const& terms, int topics)
